@@ -4,7 +4,7 @@ class Graphene
   demo:->
     @is_demo = true
 
-  build: (json)=>
+  build: (json,cb)=>
     _.each _.keys(json), (k)=>
       console.log "building [#{k}]"
       if @is_demo
@@ -23,7 +23,7 @@ class Graphene
         klass = eval("Graphene.#{view}View")
         console.log _.extend({ model: ts, ymin:@getUrlParam(model_opts.source, "yMin"), ymax:@getUrlParam(model_opts.source, "yMax") }, opts)
         new klass(_.extend({ model: ts, ymin:@getUrlParam(model_opts.source, "yMin"), ymax:@getUrlParam(model_opts.source, "yMax") }, opts))
-        ts.start()
+        ts.start(opts.cb)
 
   discover: (url, dash, parent_specifier, cb)->
     $.getJSON "#{url}/dashboard/load/#{dash}", (data)->
@@ -73,15 +73,16 @@ class Graphene.GraphiteModel extends Backbone.Model
   debug:()->
     console.log("#{@get('refresh_interval')}")
 
-  start: ()=>
-    @refresh()
+
+  start: (done)=>
+    @refresh(done)
     console.log("Starting to poll at #{@get('refresh_interval')}")
     @t_index = setInterval(@refresh, @get('refresh_interval'))
 
   stop: ()=>
     clearInterval(@t_index)
 
-  refresh: ()=>
+  refresh: (done)=>
     url = @get('source')
     #jQuery expects to see 'jsonp=?' in the url in order to perform JSONP-style requests
     if -1 == url.indexOf('&jsonp=?')
@@ -92,8 +93,7 @@ class Graphene.GraphiteModel extends Backbone.Model
       dataType: 'json'
       jsonp: 'jsonp'
       success: (js) =>
-        console.log("got data.")
-        @process_data(js)
+        @process_data(js,done)
     $.ajax options
 
   process_data: ()=>
@@ -187,7 +187,7 @@ class Graphene.BarChart extends Graphene.GraphiteModel
     @set(data:data)
 
 class Graphene.TimeSeries extends Graphene.GraphiteModel
-  process_data: (js)=>
+  process_data: (js,cb)=>
     data = _.map js, (dp)->
       min = d3.min(dp.datapoints, (d) -> d[0])
       return null unless min != undefined
@@ -205,6 +205,8 @@ class Graphene.TimeSeries extends Graphene.GraphiteModel
       }
     data = _.reject data, (d)-> d == null
     @set(data:data)
+    if(cb)
+      cb(data)
 
 
 
@@ -306,7 +308,6 @@ class Graphene.GaugeLabelView extends Backbone.View
 
   render: ()=>
     data = @model.get('data')
-    console.log data
     datum = if data && data.length > 0 then data[0] else { ymax: @null_value, ymin: @null_value, points: [[@null_value, 0]] }
 
     # let observer know about this
@@ -345,7 +346,7 @@ class Graphene.TimeSeriesView extends Backbone.View
     @label_columns = @options.label_columns || 1
     @label_href = @options.label_href || (label) -> '#'
     @label_formatter = @options.label_formatter || (label) -> label
-    @num_labels = @options.num_labels || 3
+    @num_labels = if @options.num_labels == undefined then 3 else @options.num_labels
     @sort_labels = @options.labels_sort
     @display_verticals = @options.display_verticals || false
     @width = @options.width || 400
@@ -428,7 +429,6 @@ class Graphene.TimeSeriesView extends Backbone.View
     #
     points = _.map data, (d)-> d.points
 
-
     if @firstrun
       @firstrun = false
 
@@ -452,8 +452,8 @@ class Graphene.TimeSeriesView extends Backbone.View
       # so enter() exit() semantics are invalid. We will append here, and later just replace (update).
       # To see an idiomatic d3 handling, take a look at the legend fixture.
       #
-      vis.selectAll("path.line").data(points).enter().append('path').attr("d", line).attr('class',  (d,i) -> 'line '+"h-col-#{i+1}")
-      vis.selectAll("path.area").data(points).enter().append('path').attr("d", area).attr('class',  (d,i) -> 'area '+"h-col-#{i+1}")
+      vis.selectAll("path.line").data(points).enter().append('path').attr("d", line).attr('data-label',(d,i) -> data[i].label).attr('class',  (d,i) -> data[i].label+' line '+"h-col-#{i+1}")
+      vis.selectAll("path.area").data(points).enter().append('path').attr("d", area).attr('data-label',(d,i) -> data[i].label).attr('class',  (d,i) -> data[i].label+' area '+"h-col-#{i+1}")
           
       if (@options.warn && (dmax.ymax_graph > @options.warn))
           warnData = [[[@options.warn, xmin],[@options.warn, xmax]]]
@@ -544,6 +544,7 @@ class Graphene.TimeSeriesView extends Backbone.View
     #
     # update the graph
     #
+
     vis.transition().ease("linear").duration(@animate_ms).select(".x.axis").call(xAxis)
     vis.select(".y.axis").call(yAxis)
 
@@ -571,7 +572,7 @@ class Graphene.BarChartView extends Backbone.View
   initialize: () ->
     @line_height = @options.line_height || 16
     @animate_ms = @options.animate_ms || 500
-    @num_labels = @options.num_labels || 3
+    @num_labels = if @options.num_labels == undefined then 3 else @options.num_labels
     @sort_labels = @options.labels_sort || 'desc'
     @display_verticals = @options.display_verticals || false
     @width = @options.width || 400
@@ -591,6 +592,7 @@ class Graphene.BarChartView extends Backbone.View
             .attr("height", @height + (@padding[0]+@padding[2]))
             .append("g")
             .attr("transform", "translate(" + @padding[3] + "," + @padding[0] + ")")
+
     @model.bind('change', @render)
   render: () =>
     console.log "rendering bar chart."

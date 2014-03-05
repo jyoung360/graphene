@@ -694,6 +694,9 @@ line.tick {
   fill: none;
   stroke-width: 1px; }
 
+.line-highlight {
+  stroke-width: 5px; }
+
 .axis {
   shape-rendering: crispEdges; }
 
@@ -707,6 +710,16 @@ line.tick {
 .y.axis line, .y.axis path {
   fill: none;
   stroke-opacity: 0.3; }
+
+path.line-warn {
+  stroke: yellow;
+  fill: yellow;
+  stroke-width: 2px; }
+
+path.line-error {
+  stroke: red;
+  fill: red;
+  stroke-width: 2px; }
 
 .min-tag {
   fill: red;
@@ -777,6 +790,21 @@ text, tspan {
   .ggview .gauge path.band {
     stroke: none;
     fill-opacity: 0.9; }
+
+.tsview-label {
+  padding: 0 3px 0 3px;
+  border: 1px solid #ccc;
+  background-color: #222;
+  border-radius: 3px;
+  -webkit-border-radius: 2px;
+  -moz-border-radius: 2px;
+  color: white;
+  position: fixed;
+  z-index: 1030;
+  display: block;
+  visibility: visible;
+  font-size: 12px;
+  line-height: 1.4; }
 #dashboard {
   padding-top: 6em; }
 /*
